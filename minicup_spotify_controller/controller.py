@@ -1,4 +1,8 @@
 # coding=utf-8
+import sys
+
+sys.path.append('/usr/lib/python3/dist-packages')
+
 import logging
 from datetime import datetime
 from json import dumps, loads
@@ -7,6 +11,7 @@ from time import sleep
 from typing import Dict
 
 import websocket
+from pytify.strategy import get_pytify_class_by_platform
 from websocket import WebSocketApp
 
 websocket.enableTrace(True)
@@ -28,12 +33,14 @@ class SpotifyController(object):
         self._category_id = category_id
         self._matches = {}  # type: Dict[int, Dict]
 
+        self._spotify = get_pytify_class_by_platform()()
+        self._spotify_playing = False
+
     def run(self):
         while True:
             self._client.run_forever()
 
             sleep(1)
-            self._client.run_forever()
 
     def _on_message(self, ws: WebSocketApp, message):
         data = loads(message)
@@ -46,13 +53,31 @@ class SpotifyController(object):
             self._matches[match.get('id')] = match
 
         if not self.can_play_music():
-            print(datetime.now(), 'please stop the music')
+            logger.info('{} please stop the music'.format(datetime.now()))
+            self._toggle_spotify_play(state=False)
         else:
-            print(datetime.now(), 'little party never killed nobody!')
+            logger.info('{} little party never killed nobody!'.format(datetime.now()))
+            self._toggle_spotify_play(state=True)
+
+    def _toggle_spotify_play(self, state):
+        if self._spotify_playing == state:
+            return
+
+        try:
+            self._spotify.play_pause()
+            self._spotify_playing = state
+        except Exception as e:
+            logger.exception(e)
+            self._spotify = get_pytify_class_by_platform()()
+            try:
+                self._spotify.play_pause()
+                self._spotify_playing = state
+            except Exception:
+                logger.error('Cannot connect to spotify.')
 
     def can_play_music(self):
         states = set(map(itemgetter('state'), self._matches.values()))
-        logger.debug(states)
+        logger.info(states)
         return not ('half_first' in states or 'half_second' in states)
 
     def _on_error(self, ws: WebSocketApp, error):

@@ -1,5 +1,6 @@
 # coding=utf-8
 import logging
+from logging import StreamHandler
 
 from minicup_spotify_controller.controller import SpotifyController
 
@@ -19,5 +20,7 @@ if __name__ == "__main__":
 
     ws_logger = logging.getLogger('websocket')
     ws_logger.disabled = True
+
+    logging.getLogger().addHandler(logging.StreamHandler())
 
     controller.run()
